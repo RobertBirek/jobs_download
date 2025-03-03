@@ -30,13 +30,6 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
-
-
-# Ustawienia
-target_date_str = "2025-02-19"  # data, którą chcemy zebrać
-target_date = datetime.datetime.strptime(target_date_str, "%Y-%m-%d").date()
-output_filename = f"dane_{target_date_str}.jsonl"  # plik, do którego zapiszemy wpisy
-
 ########################################################
 def fetch_proxy_list():
     download_url = PROXY_URL
