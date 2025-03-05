@@ -15,6 +15,9 @@ load_dotenv()
 LOCAL_DATA_FOLDER = Path("data/")
 os.makedirs(LOCAL_DATA_FOLDER, exist_ok=True)
 
+ENDPOINT_URL = f"https://fra1.digitaloceanspaces.com"
+BUCKET_NAME = "gotoit.robertbirek"
+
 PROXY_URL = os.environ.get("PROXY_URL")
 
 # Reset existing handlers
@@ -104,16 +107,22 @@ def get_offers_justjoinit(page=1,offers_per_page=1):
 ########################################################
 def save_page_by_date(offers, save_dir=LOCAL_DATA_FOLDER):
     # Słownik do śledzenia, które slugi już zostały zapisane dla danej daty
+    
+    save_dir = Path(save_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    
     seen_slugs = {}
+    total_offers = len(offers)
+    duplicate_count = 0
+
     for offer in offers:
         published_at_str = offer.get("publishedAt")
-        if not published_at_str:
-            logging.error("Oferta bez daty:", offer)
-            continue
         slug = offer.get("slug")
-        if not slug:
-            logging.error("Oferta bez klucza slug:", offer)
+
+        if not published_at_str or not slug:
+            logging.error(f"Niepoprawna oferta: {offer}")
             continue
+        
         try:
             # Konwersja daty ze standardu ISO
             published_date = datetime.datetime.fromisoformat(published_at_str.replace("Z", "+00:00")).date()
@@ -125,36 +134,43 @@ def save_page_by_date(offers, save_dir=LOCAL_DATA_FOLDER):
 
         # Nazwa pliku wynikowego dla danej daty
         # output_filename = f"justjoinit_{date_str}.jsonl"
-        output_filename = os.path.join(save_dir, f"justjoinit_{date_str}.jsonl")
+        # output_filename = os.path.join(save_dir, f"justjoinit_{date_str}.jsonl")
+        output_filename = save_dir / f"justjoinit_{date_str}.jsonl"
 
         # Jeśli nie śledzimy jeszcze slugów dla tej daty, inicjujemy zbiór
         if date_str not in seen_slugs:
             seen_slugs[date_str] = set()
             # Opcjonalnie: jeśli plik już istnieje, wczytujemy z niego dotychczas zapisane slugi,
             # aby nie zapisać duplikatów przy wielokrotnym uruchomieniu programu.
-            if os.path.exists(output_filename):
-                with open(output_filename, "r", encoding="utf-8") as f_out:
+            if output_filename.exists():
+                with output_filename.open("r", encoding="utf-8") as f_out:
                     for line in f_out:
                         try:
-                            existing_offer = json.loads(line.strip())
-                            existing_slug = existing_offer.get("slug")
+                            # existing_offer = json.loads(line.strip())
+                            # existing_slug = existing_offer.get("slug")
+                            existing_slug = json.loads(line.strip()).get("slug")
                             if existing_slug:
                                 seen_slugs[date_str].add(existing_slug)
                         except Exception as e:
                             logging.error("Błąd przy wczytywaniu oferty z istniejącego pliku:", e)
         # Sprawdzenie, czy oferta o danym slug już została dodana
         if slug in seen_slugs[date_str]:
-            logging.info(f"Duplikat oferty z kluczem '{slug}' dla daty {date_str} - pomijam.")
+            logging.info(f"Duplikat oferty '{slug}' dla daty {date_str} - pomijam.")
+            duplicate_count += 1
             continue
-        else:
-            seen_slugs[date_str].add(slug)
+        
+        seen_slugs[date_str].add(slug)
 
         # Zapis oferty do pliku (każda oferta w osobnej linii - format JSON Lines)
-        with open(output_filename, "a", encoding="utf-8") as out_file:
+        with output_filename.open("a", encoding="utf-8") as out_file:
             json.dump(offer, out_file, ensure_ascii=False)
             out_file.write("\n")
         
         logging.info(f"Oferta z kluczem '{slug}' dodana do pliku {output_filename}.")
+
+    if total_offers == duplicate_count:
+        logging.info(f"Same duplikaty, przerywam.")
+        return False
     return True
 
 ########################################################
@@ -186,16 +202,19 @@ def fetch_offers(start_page=1, offers_per_page_count=1, page_count=1, sleep=100)
         
         if offers:
             # save_page(page, offers)
-            save_page_by_date(offers)
-            if next_page is not None and next_page != "null":
-                if page_count > 1:
-                    rsleep = random.randint(1, sleep)
-                    time.sleep(rsleep)
-                    fetch_offers(int(next_page), offers_per_page_count, page_count - 1, sleep)
+            saved = save_page_by_date(offers)
+            if saved:
+                if next_page is not None and next_page != "null":
+                    if page_count > 1:
+                        rsleep = random.randint(1, sleep)
+                        time.sleep(rsleep)
+                        fetch_offers(int(next_page), offers_per_page_count, page_count - 1, sleep)
+                    else:
+                        logging.info("Reached the user-defined page limit.")
                 else:
-                    logging.info("Reached the user-defined page limit.")
+                    logging.info(f"End of data at page {page}. Total pages: {total_pages}, Total offers: {total_offers}.")
             else:
-                logging.info(f"End of data at page {page}. Total pages: {total_pages}, Total offers: {total_offers}.")
+                raise Exception("Duplicates only, stopping.")
         else:
             sleep *=10
             if sleep < 1000:
