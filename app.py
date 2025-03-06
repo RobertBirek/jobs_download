@@ -10,7 +10,8 @@ import logging
 from dotenv import load_dotenv
 from pathlib import Path
 
-load_dotenv()
+# load_dotenv()
+load_dotenv(dotenv_path=Path(".env"))
 
 LOCAL_DATA_FOLDER = Path("data/")
 os.makedirs(LOCAL_DATA_FOLDER, exist_ok=True)
@@ -22,6 +23,7 @@ s3_client = boto3.client('s3', endpoint_url=ENDPOINT_URL)
 
 PROXY_URL = os.environ.get("PROXY_URL")
 
+########################################################
 # Reset existing handlers
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
@@ -37,7 +39,7 @@ logging.basicConfig(
 )
 ########################################################
 def fetch_proxy_list():
-    download_url = PROXY_URL
+    download_url=PROXY_URL
     logging.info(download_url)
     try:
         # Pobranie listy proxy
@@ -195,7 +197,7 @@ def save_offers_s3_by_date(offers, bucket_name, s3_client):
             published_date = datetime.datetime.fromisoformat(published_at_str.replace("Z", "+00:00")).date()
             date_str = published_date.isoformat()  # Format: YYYY-MM-DD
         except Exception as e:
-            logging.error("Błąd przetwarzania daty dla oferty:", offer, e)
+            logging.error(f"Błąd przetwarzania daty dla oferty: {offer}: {e}")
             continue
         
         offers_by_date.setdefault(date_str, []).append(offer)
@@ -233,6 +235,7 @@ def save_offers_s3_by_date(offers, bucket_name, s3_client):
             slug = offer.get("slug")
             if slug in seen_slugs:
                 logging.info(f"Duplikat oferty '{slug}' dla daty {date_str} - pomijam.")
+                duplicate_count += 1 # Zliczanie duplikatów
                 continue
             seen_slugs.add(slug)
             new_lines.append(json.dumps(offer, ensure_ascii=False))
@@ -255,34 +258,12 @@ def save_offers_s3_by_date(offers, bucket_name, s3_client):
     return True
 
 ########################################################
-def save_page(page, offers, save_dir=LOCAL_DATA_FOLDER):
-    try:
-        Path(save_dir).mkdir(parents=True, exist_ok=True)
-        file_path = os.path.join(save_dir, f'justjoinit_offers__page_{page}.json')
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(offers, f, indent=4, ensure_ascii=False)
-        logging.info(f"Strona {page} zapisana w {file_path}")
-        return True
-    except FileNotFoundError as e:
-        logging.error(f"Nie można zapisać strony {page}: katalog nie istnieje. {e}")
-        return False
-    except PermissionError as e:
-        logging.error(f"Brak uprawnień do zapisu strony {page} w {save_dir}. {e}")
-        return False
-    except TypeError as e:
-        logging.error(f"Błąd w danych do zapisu dla strony {page}: {e}")
-        return False
-    except Exception as e:
-        logging.error(f"Nieoczekiwany błąd przy zapisie strony {page}: {e}")
-        return False
-########################################################
 def fetch_offers(start_page=1, offers_per_page_count=1, page_count=1, sleep=100):
     try:
         page = start_page
         offers, total_pages, total_offers, next_page = get_offers_justjoinit(page, offers_per_page_count)
         
         if offers:
-            # save_page(page, offers)
             # saved = save_offers_local_by_date(offers)
             saved = save_offers_s3_by_date(offers, BUCKET_NAME, s3_client)
             if saved:
@@ -312,12 +293,12 @@ def fetch_offers(start_page=1, offers_per_page_count=1, page_count=1, sleep=100)
 
 ########################################################
 
-fetch_offers(1,10,1)
+# fetch_offers(1,100,10)
 
 # Ustaw pobieranie pliku codziennie o konkretnej godzinie, np. 10:30
-# schedule.every().day.at("10:30").do(fetch_offers())
+schedule.every().day.at("10:30").do(fetch_offers(1,100,10))
 
-# logging.info("Uruchomiono planowanie pobierania. Program czeka na ustalony czas...")
-# while True:
-#     schedule.run_pending()
-#     time.sleep(60)
+logging.info("Uruchomiono planowanie pobierania. Program czeka na ustalony czas...")
+while True:
+    schedule.run_pending()
+    time.sleep(60)
