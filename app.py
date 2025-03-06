@@ -277,6 +277,7 @@ def fetch_offers(start_page=1, offers_per_page_count=1, page_count=1, sleep=100)
                 else:
                     logging.info(f"End of data at page {page}. Total pages: {total_pages}, Total offers: {total_offers}.")
             else:
+                
                 raise Exception("Duplicates only, stopping.")
         else:
             sleep *=10
@@ -290,6 +291,8 @@ def fetch_offers(start_page=1, offers_per_page_count=1, page_count=1, sleep=100)
                 fetch_offers(int(start_page) + 1, offers_per_page_count, page_count - 1, 10)
     except Exception as e:
         logging.error(f"Critical error while fetching offers: {e}")
+        if "Duplicates only" in str(e):
+            return
 
 ########################################################
 
