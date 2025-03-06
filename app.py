@@ -10,6 +10,10 @@ import logging
 from dotenv import load_dotenv
 from pathlib import Path
 
+# Ustawienie strefy czasowej
+os.environ["TZ"] = "Europe/Warsaw"
+time.tzset()  # Aktualizacja czasu dla procesu
+
 # load_dotenv()
 load_dotenv(dotenv_path=Path(".env"))
 
