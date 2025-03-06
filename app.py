@@ -338,4 +338,4 @@ schedule.every().day.at("12:30").do(fetch_offers,1,100,10)
 logging.info("Uruchomiono planowanie pobierania. Program czeka na ustalony czas...")
 while True:
     schedule.run_pending()
-    time.sleep(60)
+    time.sleep(1)
