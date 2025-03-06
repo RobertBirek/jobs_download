@@ -53,6 +53,22 @@ def upload_logs_to_s3():
         logging.info(f"Plik logów {LOG_FILE} wysłany do S3 jako {s3_key}")
     except Exception as e:
         logging.error(f"Błąd przy wysyłaniu logów do S3: {e}")
+########################################################
+def send_discord_notification(message):
+    webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+
+    if not webhook_url:
+        logging.warning("Brak URL webhooka Discorda. Powiadomienie nie zostanie wysłane.")
+        return
+    
+    payload = {"content": message}
+    
+    try:
+        response = requests.post(webhook_url, json=payload)
+        response.raise_for_status()
+        logging.info("Powiadomienie Discord wysłane.")
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Błąd wysyłania powiadomienia na Discord: {e}")
 
 ########################################################
 def fetch_proxy_list():
@@ -294,6 +310,7 @@ def fetch_offers(start_page=1, offers_per_page_count=1, page_count=1, sleep=100)
                 else:
                     logging.info(f"End of data at page {page}. Total pages: {total_pages}, Total offers: {total_offers}.")
             else:
+                send_discord_notification("Downloads offers is ok today")
                 upload_logs_to_s3()
                 raise Exception("Duplicates only, stopping.")
         else:
