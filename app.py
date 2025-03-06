@@ -18,6 +18,8 @@ os.makedirs(LOCAL_DATA_FOLDER, exist_ok=True)
 ENDPOINT_URL = f"https://fra1.digitaloceanspaces.com"
 BUCKET_NAME = "gotoit.robertbirek"
 
+s3_client = boto3.client('s3', endpoint_url=ENDPOINT_URL)
+
 PROXY_URL = os.environ.get("PROXY_URL")
 
 # Reset existing handlers
@@ -105,7 +107,7 @@ def get_offers_justjoinit(page=1,offers_per_page=1):
         logging.error(f"HTTP request error on page {page}: {e}")
         return None, 0, 0, None
 ########################################################
-def save_page_by_date(offers, save_dir=LOCAL_DATA_FOLDER):
+def save_offers_local_by_date(offers, save_dir=LOCAL_DATA_FOLDER):
     # Słownik do śledzenia, które slugi już zostały zapisane dla danej daty
     
     save_dir = Path(save_dir)
@@ -172,6 +174,85 @@ def save_page_by_date(offers, save_dir=LOCAL_DATA_FOLDER):
         logging.info(f"Same duplikaty, przerywam.")
         return False
     return True
+########################################################
+def save_offers_s3_by_date(offers, bucket_name, s3_client):
+    # Grupujemy oferty według daty publikacji
+    offers_by_date = {}
+    
+    total_offers = len(offers)
+    duplicate_count = 0
+
+    for offer in offers:
+        published_at_str = offer.get("publishedAt")
+        slug = offer.get("slug")
+
+        if not published_at_str or not slug:
+            logging.error(f"Niepoprawna oferta: {offer}")
+            continue
+        
+        try:
+            # Konwersja daty ze standardu ISO
+            published_date = datetime.datetime.fromisoformat(published_at_str.replace("Z", "+00:00")).date()
+            date_str = published_date.isoformat()  # Format: YYYY-MM-DD
+        except Exception as e:
+            logging.error("Błąd przetwarzania daty dla oferty:", offer, e)
+            continue
+        
+        offers_by_date.setdefault(date_str, []).append(offer)
+
+    # Przetwarzamy oferty dla każdej daty osobno
+    for date_str, offers_list in offers_by_date.items():
+        year, month, day = date_str.split('-')
+        # Ustalanie klucza na S3: np. jobs/2025/03/05/justjoinit.jsonl
+        output_filename = f"justjoinit_{date_str}.jsonl"
+        key = f"jobs/{year}/{month}/{day}/{output_filename}"
+        
+        seen_slugs = set()
+        existing_content = ""
+        
+        # Próba pobrania istniejącego obiektu z S3
+        try:
+            response = s3_client.get_object(Bucket=bucket_name, Key=key)
+            existing_content = response['Body'].read().decode('utf-8')
+            # Parsowanie istniejących ofert, aby wyłapać duplikaty
+            for line in existing_content.splitlines():
+                try:
+                    existing_offer = json.loads(line)
+                    existing_slug = existing_offer.get("slug")
+                    if existing_slug:
+                        seen_slugs.add(existing_slug)
+                except Exception as e:
+                    logging.error(f"Błąd przy wczytywaniu oferty z S3 {key}: {e}")
+        except s3_client.exceptions.NoSuchKey:
+            logging.info(f"Obiekt {key} nie istnieje. Zostanie utworzony nowy.")
+        except Exception as e:
+            logging.error(f"Błąd przy pobieraniu obiektu {key} z S3: {e}")
+
+        new_lines = []
+        for offer in offers_list:
+            slug = offer.get("slug")
+            if slug in seen_slugs:
+                logging.info(f"Duplikat oferty '{slug}' dla daty {date_str} - pomijam.")
+                continue
+            seen_slugs.add(slug)
+            new_lines.append(json.dumps(offer, ensure_ascii=False))
+
+        if new_lines:
+            if existing_content and not existing_content.endswith("\n"):
+                existing_content += "\n"
+            updated_content = existing_content + "\n".join(new_lines) + "\n"
+            try:
+                s3_client.put_object(Bucket=bucket_name, Key=key, Body=updated_content.encode('utf-8'))
+                logging.info(f"Zapisano {len(new_lines)} nowych ofert do obiektu S3: {key}.")
+            except Exception as e:
+                logging.error(f"Błąd przy zapisywaniu obiektu {key} do S3: {e}")
+        else:
+            logging.info(f"Wszystkie oferty dla daty {date_str} są duplikatami.")
+
+    if total_offers == duplicate_count:
+        logging.info(f"Same duplikaty, przerywam.")
+        return False
+    return True
 
 ########################################################
 def save_page(page, offers, save_dir=LOCAL_DATA_FOLDER):
@@ -202,7 +283,8 @@ def fetch_offers(start_page=1, offers_per_page_count=1, page_count=1, sleep=100)
         
         if offers:
             # save_page(page, offers)
-            saved = save_page_by_date(offers)
+            # saved = save_offers_local_by_date(offers)
+            saved = save_offers_s3_by_date(offers, BUCKET_NAME, s3_client)
             if saved:
                 if next_page is not None and next_page != "null":
                     if page_count > 1:
@@ -230,7 +312,7 @@ def fetch_offers(start_page=1, offers_per_page_count=1, page_count=1, sleep=100)
 
 ########################################################
 
-fetch_offers(1,100,50)
+fetch_offers(1,10,1)
 
 # Ustaw pobieranie pliku codziennie o konkretnej godzinie, np. 10:30
 # schedule.every().day.at("10:30").do(fetch_offers())
