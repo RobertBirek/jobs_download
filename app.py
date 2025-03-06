@@ -47,7 +47,13 @@ logging.basicConfig(
 def upload_logs_to_s3():
     today = datetime.date.today().strftime("%Y-%m-%d")  # Format: YYYY-MM-DD
     year, month, day = today.split('-')
-    s3_key = f"jobs/{year}/{month}/{day}/{LOG_FILE}"
+    now = datetime.datetime.now()
+    timestamp = now.strftime("%H-%M-%S")  # Znacznik czasowy w nazwie pliku
+
+    # Nowa nazwa pliku z timestampem
+    log_filename = f"{LOG_FILE.replace('.log', '')}_{timestamp}.log"
+
+    s3_key = f"jobs/{year}/{month}/{day}/{log_filename}"
     # Sprawdzenie, czy plik logów istnieje
     if not os.path.exists(LOG_FILE):
         logging.warning(f"Plik logów {LOG_FILE} nie istnieje, pomijam wysyłkę do S3.")
