@@ -23,6 +23,8 @@ s3_client = boto3.client('s3', endpoint_url=ENDPOINT_URL)
 
 PROXY_URL = os.environ.get("PROXY_URL")
 
+LOG_FILE = "justjoinit.log"
+
 ########################################################
 # Reset existing handlers
 for handler in logging.root.handlers[:]:
@@ -33,10 +35,25 @@ logging.basicConfig(
     level=logging.INFO,  # Change to DEBUG if needed
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("app.log", encoding="utf-8"),
+        logging.FileHandler(LOG_FILE, encoding="utf-8"),
         logging.StreamHandler()
     ]
 )
+########################################################
+def upload_logs_to_s3():
+    today = datetime.date.today().strftime("%Y-%m-%d")  # Format: YYYY-MM-DD
+    year, month, day = today.split('-')
+    s3_key = f"jobs/{year}/{month}/{day}/{LOG_FILE}"
+    # Sprawdzenie, czy plik logów istnieje
+    if not os.path.exists(LOG_FILE):
+        logging.warning(f"Plik logów {LOG_FILE} nie istnieje, pomijam wysyłkę do S3.")
+        return
+    try:
+        s3_client.upload_file(LOG_FILE, BUCKET_NAME, s3_key)
+        logging.info(f"Plik logów {LOG_FILE} wysłany do S3 jako {s3_key}")
+    except Exception as e:
+        logging.error(f"Błąd przy wysyłaniu logów do S3: {e}")
+
 ########################################################
 def fetch_proxy_list():
     download_url=PROXY_URL
@@ -277,7 +294,7 @@ def fetch_offers(start_page=1, offers_per_page_count=1, page_count=1, sleep=100)
                 else:
                     logging.info(f"End of data at page {page}. Total pages: {total_pages}, Total offers: {total_offers}.")
             else:
-                
+                upload_logs_to_s3()
                 raise Exception("Duplicates only, stopping.")
         else:
             sleep *=10
