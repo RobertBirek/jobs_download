@@ -337,7 +337,7 @@ def fetch_offers(start_page=1, offers_per_page_count=1, page_count=1, sleep=100)
 # fetch_offers(1,100,10)
 
 # Ustaw pobieranie pliku codziennie o konkretnej godzinie, np. 10:30
-schedule.every().day.at("12:30").do(fetch_offers,1,100,10)
+schedule.every().day.at("12:30").do(fetch_offers,1,100,50)
 
 logging.info("Uruchomiono planowanie pobierania. Program czeka na ustalony czas...")
 while True:
