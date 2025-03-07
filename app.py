@@ -48,7 +48,7 @@ def upload_logs_to_s3():
     today = datetime.date.today().strftime("%Y-%m-%d")  # Format: YYYY-MM-DD
     year, month, day = today.split('-')
     now = datetime.datetime.now()
-    timestamp = now.strftime("%H-%M-%S")  # Znacznik czasowy w nazwie pliku
+    timestamp = now.strftime("%Y-%m-%d-%H-%M-%S")  # Znacznik czasowy w nazwie pliku
 
     # Nowa nazwa pliku z timestampem
     log_filename = f"{LOG_FILE.replace('.log', '')}_{timestamp}.log"
