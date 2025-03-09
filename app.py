@@ -53,7 +53,8 @@ def upload_logs_to_s3():
     # Nowa nazwa pliku z timestampem
     log_filename = f"{LOG_FILE.replace('.log', '')}_{timestamp}.log"
 
-    s3_key = f"jobs/{year}/{month}/{day}/{log_filename}"
+    #s3_key = f"jobs/{year}/{month}/{day}/{log_filename}"
+    s3_key = f"jobs/year={year}/month={month}/day={day}/{log_filename}"
     # Sprawdzenie, czy plik logów istnieje
     if not os.path.exists(LOG_FILE):
         logging.warning(f"Plik logów {LOG_FILE} nie istnieje, pomijam wysyłkę do S3.")
