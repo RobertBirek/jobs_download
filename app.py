@@ -254,7 +254,8 @@ def save_offers_s3_by_date(offers, bucket_name, s3_client):
         year, month, day = date_str.split('-')
         # Ustalanie klucza na S3: np. jobs/2025/03/05/justjoinit.jsonl
         output_filename = f"justjoinit_{date_str}.jsonl"
-        key = f"jobs/{year}/{month}/{day}/{output_filename}"
+        # key = f"jobs/{year}/{month}/{day}/{output_filename}"
+        key = f"jobs/year={year}/month={month}/day={day}/{output_filename}"
         
         seen_slugs = set()
         existing_content = ""
