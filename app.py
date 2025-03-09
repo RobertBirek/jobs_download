@@ -61,6 +61,10 @@ def upload_logs_to_s3():
     try:
         s3_client.upload_file(LOG_FILE, BUCKET_NAME, s3_key)
         logging.info(f"Plik logów {LOG_FILE} wysłany do S3 jako {s3_key}")
+
+        # Usunięcie pliku lokalnego po wysłaniu
+        os.remove(LOG_FILE)
+        logging.info(f"Plik lokalny {LOG_FILE} został usunięty.")
     except Exception as e:
         logging.error(f"Błąd przy wysyłaniu logów do S3: {e}")
 ########################################################
