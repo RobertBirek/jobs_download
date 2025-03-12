@@ -64,7 +64,9 @@ def upload_logs_to_s3():
         logging.info(f"Plik logów {LOG_FILE} wysłany do S3 jako {s3_key}")
 
         # Usunięcie pliku lokalnego po wysłaniu
-        os.remove(LOG_FILE)
+        # os.remove(LOG_FILE)
+        with open(LOG_FILE, 'w', encoding="utf-8") as f:
+            pass # Nic nie robimy, plik jest otwarty w trybie zapisu i natychmiast zamykany
         logging.info(f"Plik lokalny {LOG_FILE} został usunięty.")
     except Exception as e:
         logging.error(f"Błąd przy wysyłaniu logów do S3: {e}")
