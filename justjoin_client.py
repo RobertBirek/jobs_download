@@ -8,6 +8,7 @@ from pathlib import Path
 import logging
 from botocore.exceptions import ClientError
 from proxy_manager import ProxyManager
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 class JustJoinClient:
     def __init__(self,offers_per_page=1):
@@ -22,6 +23,12 @@ class JustJoinClient:
         self.offers, self.total_pages, self.total_offers, self.next_page = self.get_page(self.current_page)
 
     #####################################
+    @retry(
+        stop=stop_after_attempt(5),  # Maksymalnie 5 prób
+        wait=wait_exponential(multiplier=1, min=2, max=10),  # Wykładnicze opóźnienie między próbami (2s, 4s, 8s...)
+        retry=retry_if_exception_type(requests.exceptions.RequestException),  # Ponawiaj tylko w przypadku błędów sieciowych
+        reraise=True  # Jeśli po 5 próbach nadal jest błąd, rzuć wyjątek
+    )
     def get_page(self,page=1):
         headers = {"Version": "2"}
         params = {
@@ -62,7 +69,8 @@ class JustJoinClient:
         
         except requests.exceptions.RequestException as e:
             logging.error(f"Błąd HTTP przy pobieraniu strony {page}: {e}")
-            return None, 0, 0, None
+            raise
+            # return None, 0, 0, None
     #####################################
     def save_offers_local(self,local_path,offers):
         save_dir = Path(local_path)

@@ -2,3 +2,4 @@ python-dotenv
 requests
 schedule
 boto3
+tenacity
