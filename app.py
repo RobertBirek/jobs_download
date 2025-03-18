@@ -67,8 +67,8 @@ def fetch_offers_from_jj(ppage=100):
 # fetch_offers_from_jj(100)
 
 # Dodajemy zadanie do harmonogramu, np. codziennie o 10:00
-# scheduler.add_daily_job("10:00", fetch_offers_from_jj, 100)
+scheduler.add_daily_job("12:30", fetch_offers_from_jj)
 # scheduler.add_daily_job("10:00", lambda: fetch_offers_from_jj(100))
-scheduler.add_daily_job("12:30", partial(fetch_offers_from_jj, 100))
+# scheduler.add_daily_job("12:30", partial(fetch_offers_from_jj, 100))
 # Uruchamiamy harmonogram
 scheduler.run_pending()
