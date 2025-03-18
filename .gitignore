@@ -1,3 +1,4 @@
 .env
 data
-app.log
+*.log
+__pycache__
