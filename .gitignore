@@ -1,4 +1,3 @@
 .env
 data
-*.log
-__pycache__
+app.log
