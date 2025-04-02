@@ -8,8 +8,15 @@ from notification import DiscordNotifier
 from justjoin_client import JustJoinClient
 from s3_client import S3Client
 from scheduler import TaskScheduler
+from datetime import datetime
+import os
+
 
 load_dotenv()
+
+timezone = os.getenv("TZ", "UTC")
+os.environ['TZ'] = timezone
+time.tzset()  # działa na Linux/Unix
 
 LOCAL_DATA_FOLDER = Path("data/")
 
