@@ -8,7 +8,6 @@ from notification import DiscordNotifier
 from justjoin_client import JustJoinClient
 from s3_client import S3Client
 from scheduler import TaskScheduler
-from functools import partial
 
 load_dotenv()
 
@@ -27,19 +26,31 @@ def fetch_offers_from_jj(ppage=100):
     jjc = JustJoinClient(offers_per_page=ppage)
     current_page = 1
     sleep = 15
+    pages_total = 0
+    pages_readed = 0
+    offers_total = 0
+    offers_readed = 0
+    offers_saved = 0
+    offers_skipped = 0
+    
     while True:
         logging.info(f"Pobieranie ofert ze strony {current_page}...")
         offers, total_pages, total_offers, next_page = jjc.get_page(current_page)
-        
+        offers_total = total_offers
+        pages_total = total_pages
+        pages_readed = current_page
+        offers_readed += len(offers)
         # Sprawdzenie, czy są oferty do przetworzenia
         if offers is None or total_offers == 0:
             logging.info("Brak ofert do pobrania.")
             break
 
         # Zapis ofert lokalnie
-        # success = jjc.save_offers_local(LOCAL_DATA_FOLDER, offers)
+        # success, saved, duplikates = jjc.save_offers_local(LOCAL_DATA_FOLDER, offers)
         # Zapis ofert do s3
-        success = jjc.save_offers_s3(s3, offers)
+        success, saved, duplicates = jjc.save_offers_s3(s3, offers)
+        offers_saved += saved
+        offers_skipped += duplicates
         if not success:
             logging.info("Wszystkie oferty na stronie to duplikaty. Zakończono pobieranie.")
             break
@@ -56,19 +67,17 @@ def fetch_offers_from_jj(ppage=100):
         rsleep = random.randint(1, sleep)
         time.sleep(rsleep)
         
-
-    logging.info("Zakończono pobieranie ofert z JustJoin.it")  
+    end_text = f"Zakończono pobieranie ofert z JustJoin.it: wczytano {offers_readed} ofert z {pages_readed} stron. Zapisano {offers_saved} ofert, pominięto {offers_skipped} duplikatów."
+    logging.info(end_text)  
     send = log.upload_logs_s3(s3)
     if send:
         notifier.send("Zakończono pobieranie ofert z JustJoin.it. Logi przesłane do S3")
     
 
 #####################################################
-# fetch_offers_from_jj()
+fetch_offers_from_jj()
 
 # Dodajemy zadanie do harmonogramu, np. codziennie o 10:00
-scheduler.add_daily_job("16:35", fetch_offers_from_jj)
-# scheduler.add_daily_job("10:00", lambda: fetch_offers_from_jj(100))
-# scheduler.add_daily_job("12:30", partial(fetch_offers_from_jj, 100))
+# scheduler.add_daily_job("12:30", fetch_offers_from_jj)
 # Uruchamiamy harmonogram
-scheduler.run_pending()
+# scheduler.run_pending()

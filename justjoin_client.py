@@ -78,7 +78,8 @@ class JustJoinClient:
         
         seen_slugs = {}
         total_offers = len(offers)
-        duplicate_count = 0
+        saved_offers = 0
+        duplicate_offers = 0
 
         for offer in offers:
             published_at_str = offer.get("publishedAt")
@@ -118,7 +119,7 @@ class JustJoinClient:
             # Sprawdzenie, czy oferta o danym slug już została dodana
             if slug in seen_slugs[date_str]:
                 logging.warning(f"Duplikat oferty '{slug}' dla daty {date_str} - pomijam.")
-                duplicate_count += 1
+                duplicate_offers += 1
                 continue
             
             seen_slugs[date_str].add(slug)
@@ -127,19 +128,21 @@ class JustJoinClient:
             with output_filename.open("a", encoding="utf-8") as out_file:
                 json.dump(offer, out_file, ensure_ascii=False)
                 out_file.write("\n")
+                saved_offers += 1
             
             logging.info(f"Oferta z kluczem '{slug}' dodana do pliku {output_filename}.")
 
-        if total_offers == duplicate_count:
+        if total_offers == duplicate_offers:
             logging.warning("Wszystkie oferty to duplikaty, przerwanie zapisu.")
-            return False
-        return True
+            return False, saved_offers, duplicate_offers
+        return True, saved_offers, duplicate_offers
     #####################################
     def save_offers_s3(self,s3_client,offers):
         # Grupujemy oferty według daty publikacji
         offers_by_date = {}
         total_offers = len(offers)
-        duplicate_count = 0
+        saved_offers = 0
+        duplicate_offers = 0
 
         for offer in offers:
             published_at_str = offer.get("publishedAt")
@@ -201,7 +204,7 @@ class JustJoinClient:
                 slug = offer.get("slug")
                 if slug in seen_slugs:
                     logging.warning(f"Duplikat oferty '{slug}' dla daty {date_str} - pomijam.")
-                    duplicate_count += 1 # Zliczanie duplikatów
+                    duplicate_offers += 1 # Zliczanie duplikatów
                     continue
                 seen_slugs.add(slug)
                 new_lines.append(json.dumps(offer, ensure_ascii=False))
@@ -212,13 +215,14 @@ class JustJoinClient:
                 updated_content = existing_content + "\n".join(new_lines) + "\n"
                 try:
                     s3_client.put_file(s3_key,updated_content.encode('utf-8'))
+                    saved_offers += len(new_lines)
                     logging.info(f"Zapisano {len(new_lines)} nowych ofert do obiektu S3: {s3_key}.")
                 except Exception as e:
                     logging.error(f"Błąd przy zapisywaniu obiektu {s3_key} do S3: {e}")
             else:
                 logging.warning(f"Wszystkie oferty dla daty {date_str} są duplikatami.")
 
-        if total_offers == duplicate_count:
+        if total_offers == duplicate_offers:
             logging.warning("Wszystkie oferty to duplikaty, przerwanie zapisu do S3.")
-            return False
-        return True
+            return False, saved_offers, duplicate_offers
+        return True, saved_offers, duplicate_offers
