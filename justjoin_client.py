@@ -147,6 +147,7 @@ class JustJoinClient:
         for offer in offers:
             published_at_str = offer.get("publishedAt")
             slug = offer.get("slug")
+            guid = offer.get("guid")
             if not published_at_str or not slug:
                 logging.error(f"Niepoprawna oferta: {offer}")
                 continue
@@ -183,7 +184,8 @@ class JustJoinClient:
                 for line in existing_content.splitlines():
                     try:
                         existing_offer = json.loads(line)
-                        existing_slug = existing_offer.get("slug")
+                        # existing_slug = existing_offer.get("slug")
+                        existing_slug = existing_offer.get("guid")
                         if existing_slug:
                             seen_slugs.add(existing_slug)
                     except Exception as e:
@@ -201,7 +203,8 @@ class JustJoinClient:
 
             new_lines = []
             for offer in offers_list:
-                slug = offer.get("slug")
+                # slug = offer.get("slug")
+                slug = offer.get("guid")
                 if slug in seen_slugs:
                     logging.warning(f"Duplikat oferty '{slug}' dla daty {date_str} - pomijam.")
                     duplicate_offers += 1 # Zliczanie duplikatów
