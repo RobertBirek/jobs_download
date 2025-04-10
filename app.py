@@ -160,7 +160,11 @@ def jobs_sql():
         today = datetime.today()  # Define the current date
         failed_key = f"jobs/sql/offers_failed_{today.strftime('%Y%m%d')}.jsonl"
         s3.upload_file(failed_path, failed_key)
-        logging.info(f"📤 Wysłano plik błędów do S3: {failed_key}")
+        if s3.upload_file(failed_path, failed_key):
+            logging.info(f"📤 Wysłano plik błędów do S3: {failed_key}")
+            os.remove(failed_path)
+            logging.info("🗑 Usunięto lokalny plik błędów")
+
 
 
     end_text = f"Zakończono import ofert z S3: wczytano {files_imported} plików z {files_total} plików. Zapisano {offers_ok} ofert, pominięto {offers_duplikate} duplikatów, {offers_failed} błędów."

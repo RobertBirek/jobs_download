@@ -6,3 +6,4 @@ tenacity
 schedule
 sqlalchemy
 bs4
+openai
