@@ -20,16 +20,20 @@ class LogManager:
             ]
         )
     ####################################################
-    def upload_logs_s3(self,s3_client):
+    def upload_logs_s3(self,s3_client, backup_type="download"):
         now = datetime.datetime.now()
         timestamp = now.strftime("%Y-%m-%d-%H-%M-%S")
         log_filename = f"{self.log_file.replace('.log', '')}_{timestamp}.log"
         
-        year = now.strftime("%Y")
-        month = now.strftime("%m")
-        day = now.strftime("%d")
-
-        s3_key = f"jobs/year={year}/month={month}/day={day}/{log_filename}"
+        if backup_type == "download":
+            year = now.strftime("%Y")
+            month = now.strftime("%m")
+            day = now.strftime("%d")
+            s3_key = f"jobs/year={year}/month={month}/day={day}/{log_filename}"
+        elif backup_type == "sql":
+            s3_key = f"jobs/sql/logs/{log_filename}"
+        elif backup_type == "scraper":
+            s3_key = f"jobs/scraper/logs/{log_filename}"
         
         if not os.path.exists(self.log_file):
             logging.warning(f"Plik logów {self.log_file} nie istnieje")

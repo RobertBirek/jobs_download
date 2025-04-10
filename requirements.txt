@@ -1,5 +1,7 @@
+boto3
 python-dotenv
 requests
-schedule
-boto3
+requests-cache
 tenacity
+schedule
+sqlalchemy

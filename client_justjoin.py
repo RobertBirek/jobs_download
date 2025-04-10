@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+import requests_cache
 import time
 import datetime
 from dotenv import load_dotenv
@@ -8,10 +9,15 @@ from pathlib import Path
 import logging
 from botocore.exceptions import ClientError
 from proxy_manager import ProxyManager
+import random
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from scraper_db import Database
+from scraper_pages import Pages
+from scraper_parser_gpt import OfferParserGPT
 
 class JustJoinClient:
     def __init__(self,offers_per_page=1):
+        requests_cache.install_cache("justjoin_cache", backend="sqlite", expire_after=86400)
         self.base_url = "https://api.justjoin.it/v2/user-panel/offers"
         self.proxy_manager = ProxyManager()
         self.total_offers = 0
@@ -25,7 +31,7 @@ class JustJoinClient:
     #####################################
     @retry(
         stop=stop_after_attempt(5),  # Maksymalnie 5 prób
-        wait=wait_exponential(multiplier=1, min=2, max=10),  # Wykładnicze opóźnienie między próbami (2s, 4s, 8s...)
+        wait=wait_exponential(multiplier=1, min=7, max=23),  # Wykładnicze opóźnienie między próbami (2s, 4s, 8s...)
         retry=retry_if_exception_type(requests.exceptions.RequestException),  # Ponawiaj tylko w przypadku błędów sieciowych
         reraise=True  # Jeśli po 5 próbach nadal jest błąd, rzuć wyjątek
     )
@@ -226,3 +232,70 @@ class JustJoinClient:
             logging.warning("Wszystkie oferty to duplikaty, przerwanie zapisu do S3.")
             return False, saved_offers, duplicate_offers
         return True, saved_offers, duplicate_offers
+    #####################################
+    def scrape_offer_details(self, db_url: str, delay_range=(2, 10)):
+        
+        db = Database(db_url)
+        pages = Pages(self.proxy_manager)
+
+        slugs = db.get_unscraped_slugs()
+        logging.info(f"Pobrano {len(slugs)} slugów do przetworzenia.")
+
+        for slug_entry in slugs:
+            time.sleep(random.uniform(*delay_range))
+            slug = slug_entry.slug
+            offer_id = slug_entry.offer_id
+            url = f"https://justjoin.it/job-offer/{slug}"
+
+            try:
+                logging.info(f"[START] Przetwarzanie oferty {slug} (offer_id={offer_id})")
+                notes = pages.get_page_notes(url)
+                if notes is None:
+                    raise ValueError("Failed to fetch page content")
+
+                raw_text = pages.extract_description_text(url)
+                parsed = OfferParserGPT(raw_text or "").parse()
+
+                db.save_scraper_entry(
+                    offer_id=offer_id,
+                    status="ok",
+                    url=url,
+                    notes=notes,
+                    experience_description=parsed.experience_description if parsed else None,
+                    years_of_experience=parsed.years_of_experience if parsed else None,
+                    interview_mode=parsed.interview_mode if parsed else None,
+                    position_title=parsed.position_title if parsed else None,
+                    position_level=parsed.position_level if parsed else None,
+                    responsibilities=parsed.responsibilities if parsed else None,
+                    requirements=parsed.requirements if parsed else None,
+                    benefits=parsed.benefits if parsed else None,
+                    industry=parsed.industry if parsed else None,
+                    company_size=parsed.company_size if parsed else None
+                )
+
+                logging.info(f"Zapisano notatki i dane strukturalne dla oferty {offer_id}")
+
+                required_skills = db.get_required_skills_for_offer(offer_id)
+                skill_names = [s.name for s in required_skills]
+                logging.info(f"Wymagane skille: {skill_names}")
+
+                skill_levels = pages.get_skill_levels(url, skill_names)
+                logging.info(f"Znalezione poziomy skilli: {skill_levels}")
+
+                for skill in required_skills:
+                    level = skill_levels.get(skill.name, None)
+                    if level is not None:
+                        logging.info(f"Aktualizuję skill '{skill.name}' (id={skill.id}) do poziomu {level}")
+                        db.update_skill_level(offer_id, skill.id, level)
+                        if level == 1:
+                            logging.info(f"Dodaję '{skill.name}' do nice-to-have (level=1)")
+                            db.add_or_update_nice_to_have_skill(offer_id, skill.id, level)
+
+                logging.info(f"[OK] {slug}")
+                return True
+
+            except Exception as e:
+                logging.error(f"[ERROR] {slug}: {e}")
+                db.save_scraper_entry(offer_id, "error", url, str(e))
+                return False
+
