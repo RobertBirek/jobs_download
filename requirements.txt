@@ -5,3 +5,4 @@ requests-cache
 tenacity
 schedule
 sqlalchemy
+bs4
