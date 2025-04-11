@@ -39,6 +39,8 @@ def import_all_from_s3(session: Session):
 
     today = datetime.now(timezone.utc).date()
 
+    PREFIX = "jobs/2025"
+
     # Zbieramy wszystkie pliki .jsonl
     for result in paginator.paginate(Bucket=BUCKET_NAME, Prefix=PREFIX):
         for obj in result.get("Contents", []):

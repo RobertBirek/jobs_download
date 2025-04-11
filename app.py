@@ -252,15 +252,15 @@ def main():
     # Uruchomienie głównego zadania
     try:
         # jobs_download()
-        # jobs_sql()
+        jobs_sql()
         # jobs_scraper()
         # Dodajemy zadanie do harmonogramu, np. codziennie o 10:00
-        print("Uruchomiono harmonogram")
-        scheduler.add_daily_job("17:10", jobs_sql)
-        scheduler.add_daily_job("08:30", jobs_download)
-        scheduler.add_daily_job("10:30", jobs_scraper)
-        # # Uruchamiamy harmonogram
-        scheduler.run_pending()
+        # print("Uruchomiono harmonogram")
+        # scheduler.add_daily_job("17:10", jobs_sql)
+        # scheduler.add_daily_job("08:30", jobs_download)
+        # scheduler.add_daily_job("10:30", jobs_scraper)
+        # # # Uruchamiamy harmonogram
+        # scheduler.run_pending()
     except Exception as e:
         logging.error(f"Błąd głównego zadania: {e}")
 #####################################################
