@@ -35,7 +35,7 @@ DATA_FOLDER.mkdir(exist_ok=True)
 SQL_DATAFOLDER.mkdir(exist_ok=True)
 RAW_DATA_FOLDER.mkdir(exist_ok=True)
 
-SQL_FILE_NAME = "jobs.sqlite"
+SQL_FILE_NAME = "jobs2025.sqlite"
 SQL_DATABASE_URL = f"sqlite:///{SQL_DATAFOLDER}/{SQL_FILE_NAME}"
 
 log = LogManager("main.log")
@@ -109,7 +109,8 @@ def jobs_sql():
     logging.info("Importowanie ofert z S3 do SQLite")
 
     local_path = SQL_DATAFOLDER / SQL_FILE_NAME
-    s3_key = "jobs/sql/jobs.sqlite"
+    # s3_key = f"jobs/sql/jobs.sqlite"
+    s3_key = f"jobs/sql/{SQL_FILE_NAME}"
 
     # ✅ 1. Czy plik lokalny istnieje?
     if local_path.exists():
@@ -185,7 +186,8 @@ def jobs_scraper():
     logging.info("Scrapowanie ofert JustJoin.it")
 
     local_path = SQL_DATAFOLDER / SQL_FILE_NAME
-    s3_key = "jobs/sql/jobs.sqlite"
+    # s3_key = "jobs/sql/jobs.sqlite"
+    s3_key = f"jobs/sql/{SQL_FILE_NAME}"
 
     # ✅ Sprawdzenie lokalnej bazy danych
     if local_path.exists():
