@@ -1,4 +1,5 @@
 import time
+from time import sleep
 from pathlib import Path
 import logging
 import random
@@ -253,6 +254,7 @@ def main():
     try:
         # jobs_download()
         jobs_sql()
+        sleep(3600)  # 1 godzina
         # jobs_scraper()
         # Dodajemy zadanie do harmonogramu, np. codziennie o 10:00
         # print("Uruchomiono harmonogram")

@@ -39,7 +39,7 @@ def import_all_from_s3(session: Session):
 
     today = datetime.now(timezone.utc).date()
 
-    PREFIX = "jobs/year=2023"
+    PREFIX = "jobs/year=2022"
 
     # Zbieramy wszystkie pliki .jsonl
     for result in paginator.paginate(Bucket=BUCKET_NAME, Prefix=PREFIX):
