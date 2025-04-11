@@ -25,7 +25,7 @@ load_dotenv()
 
 timezone = os.getenv("TZ", "UTC")
 os.environ['TZ'] = timezone
-time.tzset()  # działa na Linux/Unix
+# time.tzset()  # działa na Linux/Unix
 
 DATA_FOLDER = Path("data/")
 SQL_DATAFOLDER = DATA_FOLDER / "sql"
@@ -35,7 +35,7 @@ DATA_FOLDER.mkdir(exist_ok=True)
 SQL_DATAFOLDER.mkdir(exist_ok=True)
 RAW_DATA_FOLDER.mkdir(exist_ok=True)
 
-SQL_FILE_NAME = "jobs2025.sqlite"
+SQL_FILE_NAME = "jobs.sqlite"
 SQL_DATABASE_URL = f"sqlite:///{SQL_DATAFOLDER}/{SQL_FILE_NAME}"
 
 log = LogManager("main.log")
@@ -255,16 +255,16 @@ def main():
     # Uruchomienie głównego zadania
     try:
         # jobs_download()
-        jobs_sql()
-        sleep(3600)  # 1 godzina
+        # jobs_sql()
+        # sleep(3600)  # 1 godzina
         # jobs_scraper()
         # Dodajemy zadanie do harmonogramu, np. codziennie o 10:00
         # print("Uruchomiono harmonogram")
-        # scheduler.add_daily_job("17:10", jobs_sql)
-        # scheduler.add_daily_job("08:30", jobs_download)
-        # scheduler.add_daily_job("10:30", jobs_scraper)
-        # # # Uruchamiamy harmonogram
-        # scheduler.run_pending()
+        scheduler.add_daily_job("04:00", jobs_sql)
+        scheduler.add_daily_job("08:30", jobs_download)
+        scheduler.add_daily_job("10:30", jobs_scraper)
+        # # Uruchamiamy harmonogram
+        scheduler.run_pending()
     except Exception as e:
         logging.error(f"Błąd głównego zadania: {e}")
 #####################################################

@@ -61,22 +61,34 @@ class S3Client:
     def upload_sqlite_db(self, s3_key: str, local_path: str, backup_prefix: str = None) -> bool:
         try:
             if backup_prefix:
-                timestamp = datetime.today().strftime('%Y%m%d_%H%M')
-                backup_key = f"{backup_prefix}/jobs_{timestamp}.sqlite"
-                copy_source = {
-                    'Bucket': self.bucket_name,
-                    'Key': s3_key
-                }
-                self.s3_client.copy_object(
-                    Bucket=self.bucket_name,
-                    CopySource=copy_source,
-                    Key=backup_key
-                )
-                logging.info(f"💾 Backup bazy wykonany w S3: {s3_key} ➜ {backup_key}")
+                try:
+                    # Sprawdź, czy plik istnieje na S3
+                    self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_key)
+                    
+                    # Jeśli istnieje, zrób kopię
+                    timestamp = datetime.today().strftime('%Y%m%d_%H%M')
+                    backup_key = f"{backup_prefix}/jobs_{timestamp}.sqlite"
+                    copy_source = {
+                        'Bucket': self.bucket_name,
+                        'Key': s3_key
+                    }
+                    self.s3_client.copy_object(
+                        Bucket=self.bucket_name,
+                        CopySource=copy_source,
+                        Key=backup_key
+                    )
+                    logging.info(f"💾 Backup bazy wykonany w S3: {s3_key} ➜ {backup_key}")
+                except ClientError as e:
+                    if e.response['Error']['Code'] == "404":
+                        logging.info(f"ℹ️ Brak pliku do backupu na S3: {s3_key}")
+                    else:
+                        raise  # Rzuć dalej inne błędy
 
+            # Upload pliku lokalnego
             self.s3_client.upload_file(local_path, self.bucket_name, s3_key)
             logging.info(f"📤 Wysłano bazę danych na S3: {s3_key}")
             return True
+
         except ClientError as e:
             logging.error(f"❌ Błąd podczas wysyłania bazy danych: {e}")
             return False
