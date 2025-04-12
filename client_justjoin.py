@@ -260,8 +260,8 @@ class JustJoinClient:
                     no_notes += 1
                     raise ValueError("Failed to fetch page content")
 
-                raw_text = pages.extract_description_text(url)
-                parsed = OfferParserGPT(raw_text or "").parse()
+                # raw_text = pages.extract_description_text(url)
+                parsed = "" # OfferParserGPT(raw_text or "").parse()
 
                 db.save_scraper_entry(
                     offer_id=offer_id,
