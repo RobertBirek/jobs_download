@@ -25,7 +25,7 @@ load_dotenv()
 
 timezone = os.getenv("TZ", "UTC")
 os.environ['TZ'] = timezone
-time.tzset()  # działa na Linux/Unix
+# time.tzset()  # działa na Linux/Unix
 
 DATA_FOLDER = Path("data/")
 SQL_DATAFOLDER = DATA_FOLDER / "sql"
@@ -220,30 +220,28 @@ def jobs_scraper():
 
     Base.metadata.create_all(engine)
 
-    offers_ok = 0
-    offers_failed = 0
-    
     try:
-        if jjc.scrape_offer_details(SQL_DATABASE_URL):
-            offers_ok += 1
-        else:
-            offers_failed += 1
+        total, success, errors, no_notes, skills_updated, skills_nice = jjc.scrape_offer_details(SQL_DATABASE_URL)
         logging.info("Scraping completed successfully")
-
     except Exception as e:
         logging.error(f"Scraping failed: {e}")
-    finally:
         session.close()
         engine.dispose()
+        return
 
-    # Zapisanie pliku SQLite z powrotem na S3
+    session.close()
+    engine.dispose()
+
     if not s3.upload_sqlite_db(s3_key, local_path, backup_prefix="jobs/sql/backup"):
         logging.error("Nie udało się wysłać pliku SQLite na S3")
         return
 
-    
-    end_text = f"Zakończono scrapowanie ofert z JustJoin.it: Zapisano {offers_ok} ofert, pominięto {offers_failed}"
-    logging.info(end_text) 
+    end_text = (
+        f"Zakończono scrapowanie ofert z JustJoin.it:\n"
+        f"➡️ Łącznie: {total} | ✅ OK: {success} | ❌ błędy: {errors} | ⛔ bez notatek: {no_notes}\n"
+        f"📊 Zaktualizowane skille: {skills_updated}, w tym jako nice-to-have: {skills_nice}"
+    )
+    logging.info(end_text)
     notifier.send(end_text) 
     send = log_scraper.upload_logs_s3(s3, backup_type="scraper")
     if send:
@@ -262,7 +260,7 @@ def main():
         # print("Uruchomiono harmonogram")
         scheduler.add_daily_job("04:00", jobs_sql)
         scheduler.add_daily_job("08:30", jobs_download)
-        scheduler.add_daily_job("12:30", jobs_scraper)
+        scheduler.add_daily_job("13:10", jobs_scraper)
         # # Uruchamiamy harmonogram
         scheduler.run_pending()
     except Exception as e:

@@ -234,12 +234,18 @@ class JustJoinClient:
         return True, saved_offers, duplicate_offers
     #####################################
     def scrape_offer_details(self, db_url: str, delay_range=(2, 10)):
-        
         db = Database(db_url)
         pages = Pages(self.proxy_manager)
 
         slugs = db.get_unscraped_slugs()
         logging.info(f"Pobrano {len(slugs)} slugów do przetworzenia.")
+
+        total = len(slugs)
+        success = 0
+        errors = 0
+        no_notes = 0
+        skills_updated = 0
+        skills_nice_to_have = 0
 
         for slug_entry in slugs:
             time.sleep(random.uniform(*delay_range))
@@ -251,6 +257,7 @@ class JustJoinClient:
                 logging.info(f"[START] Przetwarzanie oferty {slug} (offer_id={offer_id})")
                 notes = pages.get_page_notes(url)
                 if notes is None:
+                    no_notes += 1
                     raise ValueError("Failed to fetch page content")
 
                 raw_text = pages.extract_description_text(url)
@@ -274,6 +281,7 @@ class JustJoinClient:
                 )
 
                 logging.info(f"Zapisano notatki i dane strukturalne dla oferty {offer_id}")
+                success += 1
 
                 required_skills = db.get_required_skills_for_offer(offer_id)
                 skill_names = [s.name for s in required_skills]
@@ -287,15 +295,17 @@ class JustJoinClient:
                     if level is not None:
                         logging.info(f"Aktualizuję skill '{skill.name}' (id={skill.id}) do poziomu {level}")
                         db.update_skill_level(offer_id, skill.id, level)
+                        skills_updated += 1
                         if level == 1:
                             logging.info(f"Dodaję '{skill.name}' do nice-to-have (level=1)")
                             db.add_or_update_nice_to_have_skill(offer_id, skill.id, level)
+                            skills_nice_to_have += 1
 
                 logging.info(f"[OK] {slug}")
-                return True
 
             except Exception as e:
                 logging.error(f"[ERROR] {slug}: {e}")
                 db.save_scraper_entry(offer_id, "error", url, str(e))
-                return False
+                errors += 1
 
+        return total, success, errors, no_notes, skills_updated, skills_nice_to_have

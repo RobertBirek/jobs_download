@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from botocore.exceptions import ClientError
 import hashlib
+from pathlib import Path
 
 load_dotenv()
 
@@ -53,6 +54,7 @@ class S3Client:
         try:
             self.s3_client.download_file(self.bucket_name, s3_key, local_path)
             logging.info(f"📥 Pobrano bazę danych z S3: {s3_key}")
+            self.save_etag_for_file(local_path, s3_key)
             return True
         except ClientError as e:
             logging.error(f"❌ Błąd podczas pobierania bazy danych: {e}")
@@ -62,10 +64,7 @@ class S3Client:
         try:
             if backup_prefix:
                 try:
-                    # Sprawdź, czy plik istnieje na S3
                     self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_key)
-                    
-                    # Jeśli istnieje, zrób kopię
                     timestamp = datetime.today().strftime('%Y%m%d_%H%M')
                     backup_key = f"{backup_prefix}/jobs_{timestamp}.sqlite"
                     copy_source = {
@@ -82,11 +81,11 @@ class S3Client:
                     if e.response['Error']['Code'] == "404":
                         logging.info(f"ℹ️ Brak pliku do backupu na S3: {s3_key}")
                     else:
-                        raise  # Rzuć dalej inne błędy
+                        raise
 
-            # Upload pliku lokalnego
             self.s3_client.upload_file(local_path, self.bucket_name, s3_key)
             logging.info(f"📤 Wysłano bazę danych na S3: {s3_key}")
+            self.save_etag_for_file(local_path, s3_key)
             return True
 
         except ClientError as e:
@@ -143,11 +142,33 @@ class S3Client:
             return None
     #####################################
     def is_sqlite_up_to_date(self, local_path: str, s3_key: str) -> bool:
-        if not os.path.exists(local_path):
+        etag_path = Path(f"{local_path}.etag")
+        if not etag_path.exists():
+            logging.info("📄 Brak lokalnego pliku .etag – pobieranie wymagane")
             return False
-        local_md5 = self.get_local_md5(local_path)
-        s3_etag = self.get_s3_etag(s3_key)
-        if s3_etag is None:
+
+        try:
+            response = self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_key)
+            s3_etag = response['ETag'].strip('"')
+
+            with open(etag_path, "r") as f:
+                local_etag = f.read().strip()
+
+            logging.info(f"🔍 Porównanie ETag: lokalny={local_etag}, S3={s3_etag}")
+            return s3_etag == local_etag
+
+        except Exception as e:
+            logging.warning(f"❌ Błąd pobierania ETag z S3: {e}")
             return False
-        logging.info(f"🔍 Lokalna MD5: {local_md5}, S3 ETag: {s3_etag}")
-        return local_md5 == s3_etag
+    #####################################
+    def save_etag_for_file(self, local_path: str, s3_key: str):
+        try:
+            response = self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_key)
+            s3_etag = response['ETag'].strip('"')
+            with open(f"{local_path}.etag", "w") as f:
+                f.write(s3_etag)
+            logging.info(f"💾 Zapisano ETag do pliku: {local_path}.etag")
+        except Exception as e:
+            logging.warning(f"❌ Nie udało się zapisać ETag: {e}")
+
+    ######################################
