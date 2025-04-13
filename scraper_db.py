@@ -26,7 +26,7 @@ class Database:
                 if slug.offer_id not in seen:
                     seen.add(slug.offer_id)
                     unique_slugs.append(slug)
-            return unique_slugs[:5]
+            return unique_slugs[:100]
         finally:
             session.close()
 

@@ -256,7 +256,7 @@ def main():
         # jobs_sql()
         # sleep(3600)  # 1 godzina
         jobs_scraper()
-        sleep(3600)  # 1 godzina
+        sleep(60*3) 
         # Dodajemy zadanie do harmonogramu, np. codziennie o 10:00
         # print("Uruchomiono harmonogram")
         # scheduler.add_daily_job("04:00", jobs_sql)
