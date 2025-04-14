@@ -252,8 +252,8 @@ def main():
     scheduler = TaskScheduler()
     # Uruchomienie głównego zadania
     try:
-        jobs_download()
-        # jobs_sql()
+        # jobs_download()
+        jobs_sql()
         # sleep(3600)  # 1 godzina
         # jobs_scraper()
         sleep(60*60) 
