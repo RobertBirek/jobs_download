@@ -252,10 +252,10 @@ def main():
     scheduler = TaskScheduler()
     # Uruchomienie głównego zadania
     try:
-        # jobs_download()
+        jobs_download()
         # jobs_sql()
         # sleep(3600)  # 1 godzina
-        jobs_scraper()
+        # jobs_scraper()
         sleep(60*60) 
         # Dodajemy zadanie do harmonogramu, np. codziennie o 10:00
         # print("Uruchomiono harmonogram")
