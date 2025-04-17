@@ -36,7 +36,15 @@ def get_or_create(session, model, defaults=None, **kwargs):
     session.add(instance)
     session.flush()
     return instance
-
+###########################################
+def get_or_create_id(session, model, id, **kwargs):
+    instance = session.get(model, id)
+    if instance:
+        return instance
+    instance = model(id=id, **kwargs)
+    session.add(instance)
+    session.flush()
+    return instance
 ###########################################
 def import_offer_v1(data: dict, session: Session, line_number: int):
     # od 2025-03-21
@@ -49,7 +57,8 @@ def import_offer_v1(data: dict, session: Session, line_number: int):
         logging.info(f"[{line_number}] Pomijam istniejącą ofertę: {data['guid']} ({published_at})")
         return True, 1 #ilosc duplikatów
 
-    category = get_or_create(session, Category, id=data["categoryId"], name=f"Kategoria {data['categoryId']}")
+    # category = get_or_create(session, Category, id=data["categoryId"], name=f"Kategoria {data['categoryId']}")
+    category = get_or_create_id(session, Category, id=data["categoryId"])
     experience = get_or_create(session, ExperienceLevel, name=data["experienceLevel"])
     workplace = get_or_create(session, WorkplaceType, name=data["workplaceType"])
     working_time = get_or_create(session, WorkingTime, name=data["workingTime"])
